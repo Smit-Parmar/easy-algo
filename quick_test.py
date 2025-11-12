@@ -3,7 +3,7 @@
 # from core.order_manager import OrderManager
 
 # fetcher = get_data_fetcher('binance')
-# print(fetcher.fetch_ohlcv('BTCUSDT', '1h', limit=5000))
+# print(fetcher.fetch_ohlcv('BTCUSDT', '1h'))  # updated signature (no limit)
 
 # broker = get_broker('paper')
 # om = OrderManager(broker)
@@ -19,5 +19,5 @@ from markets.common.data_factory import get_data_fetcher
 
 store = DataStore(base_path='data/parquet')
 fetcher = get_data_fetcher('binance', data_store=store)
-df = fetcher.fetch_ohlcv('BTCUSDT', '15m', limit=500)
+df = fetcher.fetch_ohlcv('BTCUSDT', '15m')  # updated signature (no limit)
 print(df.tail())

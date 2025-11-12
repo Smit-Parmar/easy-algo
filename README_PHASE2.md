@@ -13,7 +13,7 @@ from markets.common.broker_factory import get_broker
 from core.order_manager import OrderManager
 
 fetcher = get_data_fetcher('binance')
-print(fetcher.fetch_ohlcv('BTCUSDT', '1h', limit=5))
+print(fetcher.fetch_ohlcv('BTCUSDT', '1h'))
 
 broker = get_broker('paper')
 om = OrderManager(broker)

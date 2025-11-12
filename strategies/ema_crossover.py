@@ -25,4 +25,5 @@ class EMACrossover(BaseStrategy):
                     signals.append({"timestamp": ts, "symbol": self.config.get("symbol", "BTCUSDT"), "side": "buy", "qty": self.qty})
                 elif row["signal"] == -1:
                     signals.append({"timestamp": ts, "symbol": self.config.get("symbol", "BTCUSDT"), "side": "sell", "qty": self.qty})
+        print("Total Generated Signals", len(signals))
         return signals

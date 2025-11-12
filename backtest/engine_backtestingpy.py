@@ -1,47 +1,78 @@
-# backtest/engine_backtestingpy.py
 from backtesting import Backtest, Strategy
 import pandas as pd
+from utils.indicators import ema
+from backtest.stats_utils import trades_to_equity_curve, compute_stats
+from backtest.evaluator import evaluate_backtest
 
 class BacktestingPyEngine:
     def __init__(self, data: pd.DataFrame, strategy_cls, config: dict):
-        self.data = data
+        self.data = data.copy()
         self.strategy_cls = strategy_cls
         self.config = config
 
-    def run(self):
-        # Capture config in closure so inner class can use it
-        engine_config = self.config
+    def run(self,save_html=None):
+        cfg = self.config
+
+        # TA-LIB indicators
+        df = self.data.copy()
+        df["EMA_FAST"] = ema(df["close"], cfg.get("fast", 9))
+        df["EMA_SLOW"] = ema(df["close"], cfg.get("slow", 21))
+
+        # Backtesting.py naming rules
+        df_bt = df.rename(columns={
+            "open": "Open",
+            "high": "High",
+            "low": "Low",
+            "close": "Close",
+            "volume": "Volume",
+        })
+
+        fast_series = df["EMA_FAST"]
+        slow_series = df["EMA_SLOW"]
 
         class PyStrategy(Strategy):
             def init(self):
-                # 'self.data.Close' inside backtesting.py is an _Array-like object.
-                # Use self.I with a function that converts the incoming array to pd.Series
-                close = self.data.Close
-                # fast EMA
-                self.ema_fast = self.I(
-                    lambda x: pd.Series(x).ewm(span=engine_config.get('fast', 9)).mean().values,
-                    close
-                )
-                # slow EMA
-                self.ema_slow = self.I(
-                    lambda x: pd.Series(x).ewm(span=engine_config.get('slow', 21)).mean().values,
-                    close
-                )
+                # ✅ Register indicators so Backtesting.py can use them
+                self.fast = self.I(lambda: fast_series.values)
+                self.slow = self.I(lambda: slow_series.values)
 
             def next(self):
-                # Use the most recent values to decide
-                if self.ema_fast[-1] > self.ema_slow[-1]:
-                    if not self.position:
-                        self.buy()
-                elif self.ema_fast[-1] < self.ema_slow[-1]:
-                    if self.position:
-                        self.sell()
+                f = self.fast[-1]
+                s = self.slow[-1]
 
-        # backtesting.py expects columns Open/High/Low/Close/Volume
-        df = self.data.rename(columns={
-            "open": "Open", "high": "High", "low": "Low", "close": "Close", "volume": "Volume"
-        })
-        bt = Backtest(df, PyStrategy,
-                      cash=engine_config.get('cash', 100000),
-                      commission=engine_config.get('commission', 0.001))
-        return bt.run()
+                if pd.isna(f) or pd.isna(s):
+                    return
+
+                if f > s and not self.position:
+                    self.buy(size=cfg.get("qty", 0.01))
+
+                elif f < s and self.position:
+                    self.sell(size=self.position.size)
+
+        bt = Backtest(
+            df_bt,
+            PyStrategy,
+            cash=cfg.get("cash", 1000000),
+            commission=cfg.get("commission", 0.001),
+            trade_on_close=True
+        )
+
+        stats = bt.run()
+
+        # ✅ Convert BT trades to unified format
+        trades = []
+        for t in stats._trades.itertuples():
+            trades.append({
+                "timestamp": t.EntryTime,
+                "symbol": cfg["symbol"],
+                "side": "buy" if t.Size > 0 else "sell",
+                "qty": abs(float(t.Size)),
+                "price": float(t.EntryPrice),
+            })
+
+        equity = trades_to_equity_curve(trades)
+        stats_map = compute_stats(trades, equity)
+
+        report = evaluate_backtest(df, trades, save_html=save_html)
+
+        return df, trades, report

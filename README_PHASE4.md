@@ -24,7 +24,7 @@ from markets.common.data_factory import get_data_fetcher
 
 store = DataStore(base_path='data/parquet')
 fetcher = get_data_fetcher('binance', data_store=store)
-df = fetcher.fetch_ohlcv('BTCUSDT', '1h', limit=50)
+df = fetcher.fetch_ohlcv('BTCUSDT', '1h')
 print(df.tail())
 ```
 
