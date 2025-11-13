@@ -1,28 +1,30 @@
-import pandas as pd
-import logging
 
-logger = logging.getLogger(__name__)
+from backtest.evaluator import evaluate_backtest
 
 class StrategyRunner:
-    def __init__(self, data_fetcher, broker, order_manager, strategy_cls, config=None):
+    def __init__(self, data_fetcher, broker, order_manager, strategy_cls, config):
         self.data_fetcher = data_fetcher
         self.broker = broker
         self.order_manager = order_manager
         self.strategy_cls = strategy_cls
-        self.config = config or {}
+        self.config = config
 
-    def _prepare_historical(self, symbol: str, timeframe: str, since=None, limit=None):
-        df = self.data_fetcher.fetch_ohlcv(symbol, timeframe, since=since, limit=limit)
-        if not isinstance(df.index, pd.DatetimeIndex):
-            df.index = pd.to_datetime(df.index)
-        return df
-
-    def run_backtest(self, symbol: str, timeframe: str, since=None, limit=None):
-        df = self._prepare_historical(symbol, timeframe, since, limit)
-        strategy = self.strategy_cls(df, self.config.get("strategy", {}))
+    def run_backtest(self, symbol, timeframe, limit=200):
+        # Updated fetch_ohlcv signature (limit removed)
+        df = self.data_fetcher.fetch_ohlcv(symbol, timeframe)
+        strategy = self.strategy_cls(df, self.config["strategy"])
         signals = strategy.generate_signals()
-        trades = []
-        for s in signals:
-            trade = self.order_manager.create_order(s["symbol"], s["qty"], s["side"], s.get("order_type", "market"), s.get("price"))
-            trades.append(trade)
-        return trades
+
+        executed=[]
+        for t in signals:
+            price=df.loc[t["timestamp"],"close"]
+            executed.append({
+                "timestamp":t["timestamp"],
+                "symbol":t["symbol"],
+                "side":t["side"],
+                "qty":t["qty"],
+                "price":price
+            })
+
+        report=evaluate_backtest(df,executed)
+        return df,executed,report
