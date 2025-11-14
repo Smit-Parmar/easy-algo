@@ -1,52 +1,82 @@
-import argparse
-from markets.common.data_factory import get_data_fetcher
-from markets.common.broker_factory import get_broker
-from markets.common.data_store import DataStore
-from core.order_manager import OrderManager
-from strategies.ema_crossover import EMACrossover
-from strategies.ema_crossover_talib import EMACrossoverTALib
+# backtest/run_backtest.py
 
-def run_demo_backtest(engine="backtestingpy"):
+import argparse
+import importlib
+from pathlib import Path
+
+from markets.common.data_factory import get_data_fetcher
+from markets.common.data_store import DataStore
+from backtest.engine_factory import get_engine
+
+
+def run_demo_backtest(engine_name="backtestingpy"):
+    """
+    Runs a demo backtest for any engine (vectorbt / backtestingpy).
+    Uses a consistent API so future live-trading integration is seamless.
+    """
+
+    # --- Config (kept inline as requested)
     config = {
         "market": "crypto",
         "data_provider": "binance",
         "broker": "paper",
         "strategy": {
+            "class": "strategies.ema_crossover_talib.EMACrossoverTALib",  # full import path
             "symbol": "ETHUSDT",
+            "timeframe": "5m",
             "fast": 9,
             "slow": 21,
             "qty": 1,
-            "cash": 10000000
+            "cash": 10_000_000,
         },
-        "start_date": "01-11-2024",
-        "end_date": "11-11-2025"
+        "start_date": "01-10-2025",
+        "end_date": "11-11-2025",
     }
 
-    store = DataStore(base_path='data/parquet')
+    # --- Load strategy dynamically from config
+    strategy_path = config["strategy"]["class"]
+    module_name, class_name = strategy_path.rsplit(".", 1)
+    StrategyClass = getattr(importlib.import_module(module_name), class_name)
+
+    # --- Prepare data
+    store = DataStore(base_path="data/parquet")
     data_fetcher = get_data_fetcher(config["data_provider"], data_store=store)
-    # Updated signature: removed limit, optional start_date/end_date
-    df = data_fetcher.fetch_ohlcv(config['strategy']['symbol'], '5m',config.get("start_date"),config.get("end_date"))
 
-    if engine == "backtestingpy":
-        from backtest.engine_backtestingpy import BacktestingPyEngine as Engine
-    elif engine == "vectorbt":
-        from backtest.engine_vectorbt import VectorBTEngine as Engine
+    print(f"Fetching data for {config['strategy']['symbol']} ...")
+    df = data_fetcher.fetch_ohlcv(
+        config["strategy"]["symbol"],
+        config["strategy"]["timeframe"],
+        config.get("start_date"),
+        config.get("end_date"),
+    )
 
-    engine_runner = Engine(df, EMACrossoverTALib, config['strategy'])
+    # --- Get engine dynamically (via factory)
+    EngineClass = get_engine(engine_name)
 
-    df, trades, report = engine_runner.run(save_html="backtest_report_vectorbt.html")
-    # df, trades, report = engine_runner.run(save_html="backtest_report_backtest.html")
+    # --- Run backtest
+    print(f"Running {engine_name.upper()} engine using {StrategyClass.__name__} strategy...")
+    engine_runner = EngineClass(df, StrategyClass, config["strategy"])
 
+    report_file = Path(f"backtest_report_{engine_name}.html")
+    df, trades, report = engine_runner.run(save_html=str(report_file))
+
+    # --- Print results
     print("\n=== Backtest Stats ===")
-    print(report["stats"])
+    for k, v in report["stats"].items():
+        print(f"{k:15s}: {v}")
 
-    # ✅ Show visuals
-    report["figure"].show()        
-    report["equity_plot"].show()
+    print(f"\n✅ Report saved to: {report_file.resolve()}")
+
+    # Optional: show interactive plots (if in notebook or GUI)
+    try:
+        report["figure"].show()
+        report["equity_plot"].show()
+    except Exception:
+        print("Plotly window skipped (non-GUI environment).")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--engine", default="backtestingpy", help="Choose engine: backtestingpy or vectorbt")
     args = parser.parse_args()
-    run_demo_backtest(engine=args.engine)
+    run_demo_backtest(engine_name=args.engine)

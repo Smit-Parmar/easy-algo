@@ -1,30 +1,21 @@
-
+# core/strategy_runner.py
+from markets.common.data_factory import get_data_fetcher
+from backtest.engine_factory import get_engine
 from backtest.evaluator import evaluate_backtest
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 class StrategyRunner:
-    def __init__(self, data_fetcher, broker, order_manager, strategy_cls, config):
-        self.data_fetcher = data_fetcher
-        self.broker = broker
-        self.order_manager = order_manager
-        self.strategy_cls = strategy_cls
+    def __init__(self, config: dict):
         self.config = config
+        self.data_fetcher = get_data_fetcher(config["data_provider"], data_store=None)  # pass store if used
 
-    def run_backtest(self, symbol, timeframe, limit=200):
-        # Updated fetch_ohlcv signature (limit removed)
-        df = self.data_fetcher.fetch_ohlcv(symbol, timeframe)
-        strategy = self.strategy_cls(df, self.config["strategy"])
-        signals = strategy.generate_signals()
-
-        executed=[]
-        for t in signals:
-            price=df.loc[t["timestamp"],"close"]
-            executed.append({
-                "timestamp":t["timestamp"],
-                "symbol":t["symbol"],
-                "side":t["side"],
-                "qty":t["qty"],
-                "price":price
-            })
-
-        report=evaluate_backtest(df,executed)
-        return df,executed,report
+    def run(self, engine_name: str, strategy_cls, symbol: str, timeframe: str, save_html: str | None = None):
+        cfg = self.config
+        logging.info("Fetching data for %s %s", symbol, timeframe)
+        df = self.data_fetcher.fetch_ohlcv(symbol, timeframe, cfg.get("start_date"), cfg.get("end_date"))
+        engine_cls = get_engine(engine_name)
+        engine_runner = engine_cls(df, strategy_cls, cfg.get("strategy", {}))
+        df, trades, report = engine_runner.run(save_html=save_html)
+        return df, trades, report
