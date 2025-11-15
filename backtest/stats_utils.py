@@ -48,21 +48,33 @@ def max_drawdown(eq: pd.Series):
     drawdown = (eq - roll_max) / roll_max
     return float(drawdown.min())
 
+# backtest/stats_utils.py (modified functions only)
+
+def compute_cagr(eq: pd.Series):
+    if eq.empty:
+        return 0.0
+    start, end = pd.Timestamp(eq.index[0]), pd.Timestamp(eq.index[-1])
+    years = (end - start).days / 365.25
+    if years <= 0:
+        return 0.0
+    return float((eq.iloc[-1] / eq.iloc[0]) ** (1 / years) - 1)
+
 def compute_stats(trades, equity: pd.Series):
     if equity.empty:
         return {
             "total_return": 0.0, "sharpe": 0.0, "max_drawdown": 0.0,
-            "win_rate": 0.0, "trade_count": 0, "pnl_sum": 0.0
+            "win_rate": 0.0, "trade_count": 0, "pnl_sum": 0.0, "cagr": 0.0
         }
     total = float((equity.iloc[-1] - equity.iloc[0]) / max(1e-9, equity.iloc[0]))
     ret = equity.pct_change().dropna()
-    sells = [t for t in trades if t["side"] == "sell"]
+    wins = [t for t in trades if t.get("pnl", 0) > 0]
     pnl_sum = float(np.nansum([t.get("pnl", 0.0) for t in trades]))
     return {
         "total_return": total,
         "sharpe": compute_sharpe(ret),
         "max_drawdown": max_drawdown(equity),
-        "win_rate": (len(sells) / len(trades)) if trades else 0.0,
+        "win_rate": (len(wins) / len(trades)) if trades else 0.0,
         "trade_count": len(trades),
         "pnl_sum": pnl_sum,
+        "cagr": compute_cagr(equity)
     }

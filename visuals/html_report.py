@@ -6,7 +6,7 @@ import pandas as pd
 from pathlib import Path
 
 
-def save_full_html_report(df, trades, stats, equity, outfile):
+def save_full_html_report(df, trades, stats, equity, outfile, meta=None):
     """Generate a full HTML backtest report and save it under backtest/reports.
 
     Parameters
@@ -75,6 +75,16 @@ def save_full_html_report(df, trades, stats, equity, outfile):
             name="Sells"
         ), row=1, col=1)
 
+    # --- Meta info annotation (if provided)
+    if meta:
+        meta_text = "<br>".join(f"{k}: {v}" for k, v in meta.items() if v is not None)
+        fig.add_annotation(
+            text=f"<b>Meta:</b><br>{meta_text}",
+            xref="paper", yref="paper",
+            x=0.01, y=-0.25, showarrow=False,
+            align="left", font=dict(size=12, color="gray")
+        )
+        
     # --- Equity curve
     fig.add_trace(go.Scatter(
         x=equity.index, y=equity.values, mode="lines", name="Equity"
