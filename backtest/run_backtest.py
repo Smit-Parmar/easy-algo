@@ -27,10 +27,13 @@ def run_demo_backtest(engine_name="backtestingpy"):
             "fast": 9,
             "slow": 21,
             "qty": 1,
-            "cash": 10_000_000,
+            "cash": 100000.0,
+            "commission": 0.0005,    # 0.05%
+            "stop_loss": 0.01,        # 1%
+            "target_profit": 0.04,    # 4%
         },
-        "start_date": "01-10-2025",
-        "end_date": "11-11-2025",
+        "start_date": "01-11-2025",
+        "end_date": "16-11-2025",
     }
 
     # --- Load strategy dynamically from config
@@ -67,12 +70,12 @@ def run_demo_backtest(engine_name="backtestingpy"):
 
     print(f"\n✅ Report saved to: {report_file.resolve()}")
 
-    # Optional: show interactive plots (if in notebook or GUI)
-    try:
-        report["figure"].show()
-        report["equity_plot"].show()
-    except Exception:
-        print("Plotly window skipped (non-GUI environment).")
+    # # Optional: show interactive plots (if in notebook or GUI)
+    # try:
+    #     report["figure"].show()
+    #     report["equity_plot"].show()
+    # except Exception:
+    #     print("Plotly window skipped (non-GUI environment).")
 
 
 if __name__ == "__main__":
