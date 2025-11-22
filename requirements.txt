@@ -31,3 +31,5 @@ uvicorn>=0.30.0
 
 # Indicator Libraries
 ta-lib>=0.4.27
+
+anywidget>=0.9.21

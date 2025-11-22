@@ -60,7 +60,10 @@ def run_demo_backtest(engine_name="backtestingpy"):
     print(f"Running {engine_name.upper()} engine using {StrategyClass.__name__} strategy...")
     engine_runner = EngineClass(df, StrategyClass, config["strategy"])
 
-    report_file = Path(f"backtest_report_{engine_name}.html")
+    #Store inside backtest/reports
+    report_dir = Path("backtest/reports")
+    report_dir.mkdir(parents=True, exist_ok=True)
+    report_file = report_dir / f"backtest_report_{engine_name}.html"
     df, trades, report = engine_runner.run(save_html=str(report_file))
 
     # --- Print results
