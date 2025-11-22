@@ -210,4 +210,6 @@ __marimo__/
 parquet/
 *.parquet
 
+.DS_Store
+
 reports/
