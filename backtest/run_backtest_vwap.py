@@ -34,8 +34,8 @@ def run_demo_backtest(engine_name="backtestingpy"):
             "cash": 6000,
             "commission": 0.0005,
         },
-        "start_date": "01-11-2022",
-        "end_date": "22-11-2025",
+        "start_date": "30-11-2025",
+        "end_date": "02-12-2025",
     }
 
    # --- Load strategy dynamically from config
