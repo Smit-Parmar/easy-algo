@@ -33,3 +33,9 @@ uvicorn>=0.30.0
 ta-lib>=0.4.27
 
 anywidget>=0.9.21
+
+# Angle one
+smartapi-python
+pyotp
+logzero
+websocket-client
